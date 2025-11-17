@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FaUser, FaLock, FaEye, FaEyeSlash, FaSpinner } from 'react-icons/fa';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -10,25 +11,19 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Backend base URL
-  const baseURL = 'https://spinners-backend-1.onrender.com/api/auth';
+  const navigate = useNavigate(); // ✅ React Router hook
 
-  // Input change handler
+  const baseURL = 'http://localhost:3001/api/auth';
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setLoginData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
   };
 
-  // Toggle password visibility
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
+  const handleRememberMe = (e) => setRememberMe(e.target.checked);
 
-  // Handle remember me
-  const handleRememberMe = (e) => {
-    setRememberMe(e.target.checked);
-  };
-
-  // Handle login
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -44,7 +39,6 @@ function LoginForm() {
         return;
       }
 
-      // Debug log for backend
       console.log('Sending login request:', { email: emailTrimmed, password });
 
       const response = await axios.post(`${baseURL}/login`, {
@@ -55,12 +49,11 @@ function LoginForm() {
       if (response.data.success) {
         const user = response.data.user;
 
-        // Store token and user in localStorage
         localStorage.setItem('adminToken', response.data.token);
         localStorage.setItem('adminUser', JSON.stringify(user));
 
         alert('Login successful! Redirecting to admin dashboard...');
-        window.location.href = '/admin-dashboard';
+        navigate('/admin-dashboard'); // ✅ Client-side redirect
       } else {
         setError(response.data.message || 'Login failed');
       }
@@ -184,7 +177,6 @@ function LoginForm() {
                     </button>
                   </form>
 
-                  {/* Footer inside card body - matching the image layout */}
                   <div className="text-center mt-4 pt-3" style={{ borderTop: '1px solid #dee2e6' }}>
                     <small className="text-muted">
                       2025 © Designed by <strong style={{ color: '#007bff' }}>Forge Reactor</strong>
