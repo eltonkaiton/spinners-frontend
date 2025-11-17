@@ -11,7 +11,7 @@ function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
 
   // Backend base URL
-  const baseURL = 'http://localhost:3001/api/auth';
+  const baseURL = 'https://spinners-backend-1.onrender.com/api/auth';
 
   // Input change handler
   const handleInputChange = (e) => {

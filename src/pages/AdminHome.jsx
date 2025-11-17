@@ -89,7 +89,7 @@ function AdminHome() {
   const [loading, setLoading] = useState(false);
   const [chartsLoading, setChartsLoading] = useState(false);
 
-  const baseURL = 'http://localhost:3001/api';
+  const baseURL = 'https://spinners-backend-1.onrender.com/api';
 
   // === TOGGLES ===
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
