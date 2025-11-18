@@ -1,18 +1,12 @@
+// App.jsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useContext } from 'react';
 import AdminHome from './pages/AdminHome';
 import Login from './pages/Login';
+import { AuthContext } from './contexts/AuthContext.jsx';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  // Check token in localStorage on mount
-  useEffect(() => {
-    const token = localStorage.getItem('adminToken');  // ✅ FIXED
-    if (token) {
-      setIsLoggedIn(true);
-    }
-  }, []);
+  const { isLoggedIn } = useContext(AuthContext);
 
   // Protected route wrapper
   const ProtectedRoute = ({ children }) => {
@@ -39,7 +33,7 @@ function App() {
           }
         />
 
-        {/* Optional: alias for backward compatibility */}
+        {/* Optional alias for backward compatibility */}
         <Route
           path="/admin-dashboard"
           element={<Navigate to="/admin/dashboard" replace />}

@@ -1,18 +1,19 @@
-import { useState } from 'react';
+// LoginForm.jsx
+import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaUser, FaLock, FaEye, FaEyeSlash, FaSpinner } from 'react-icons/fa';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { AuthContext } from '../contexts/AuthContext.jsx';
 
 function LoginForm() {
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
 
   const navigate = useNavigate();
-
+  const { login } = useContext(AuthContext); // ✅ Use AuthContext
   const baseURL = 'https://spinners-backend-1.onrender.com/api/auth';
 
   const handleInputChange = (e) => {
@@ -27,45 +28,33 @@ function LoginForm() {
     setError('');
 
     try {
-      const emailTrimmed = loginData.email.trim();
+      const email = loginData.email.trim();
       const password = loginData.password;
 
-      if (!emailTrimmed || !password) {
+      if (!email || !password) {
         setError('Please fill in all fields');
         setLoading(false);
         return;
       }
 
-      const response = await axios.post(`${baseURL}/login`, {
-        email: emailTrimmed,
-        password
-      });
+      const response = await axios.post(`${baseURL}/login`, { email, password });
 
       if (response.data.success) {
         const user = response.data.user;
 
-        // ✅ Save correct token name
-        localStorage.setItem('adminToken', response.data.token);
+        // ✅ Save token and user in localStorage and update context
+        login(response.data.token); // sets isLoggedIn = true
         localStorage.setItem('adminUser', JSON.stringify(user));
 
-        // ❌ Remove alert — it blocks navigation on Render
-        // alert('Login successful!');
-
-        // ✅ Redirect to correct route
-        navigate('/admin/dashboard');
+        // ✅ Redirect to dashboard
+        navigate('/admin/dashboard', { replace: true });
         return;
       }
 
       setError(response.data.message || 'Login failed');
-
     } catch (err) {
       console.error('Login error:', err);
-      setError(
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        'Login failed. Please try again.'
-      );
-
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -74,17 +63,10 @@ function LoginForm() {
   return (
     <div className="d-flex flex-column min-vh-100">
       <div className="flex-grow-1 d-flex align-items-center justify-content-center"
-        style={{
-          backgroundImage: 'url(/spinnerlog.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
-        }}
-      >
+           style={{ backgroundImage: 'url(/spinnerlog.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-md-6 col-lg-4">
-
               <div className="card shadow-lg border-0 rounded-3">
                 <div className="card-header bg-primary text-white text-center py-4 rounded-top-3">
                   <div className="d-flex align-items-center justify-content-center mb-3">
@@ -99,24 +81,18 @@ function LoginForm() {
                 </div>
 
                 <div className="card-body p-4">
-
                   <div className="text-center mb-4">
                     <h4 className="text-dark fw-bold">Welcome Back</h4>
                     <p className="text-muted">Sign in to access the admin dashboard</p>
                   </div>
 
-                  {error && (
-                    <div className="alert alert-danger">{error}</div>
-                  )}
+                  {error && <div className="alert alert-danger">{error}</div>}
 
                   <form onSubmit={handleLogin}>
-
                     <div className="mb-3">
                       <label className="form-label fw-semibold text-dark">Email</label>
                       <div className="input-group">
-                        <span className="input-group-text bg-light">
-                          <FaUser className="text-muted" />
-                        </span>
+                        <span className="input-group-text bg-light"><FaUser className="text-muted" /></span>
                         <input
                           type="email"
                           name="email"
@@ -133,9 +109,7 @@ function LoginForm() {
                     <div className="mb-4">
                       <label className="form-label fw-semibold text-dark">Password</label>
                       <div className="input-group">
-                        <span className="input-group-text bg-light">
-                          <FaLock className="text-muted" />
-                        </span>
+                        <span className="input-group-text bg-light"><FaLock className="text-muted" /></span>
                         <input
                           type={showPassword ? 'text' : 'password'}
                           name="password"
@@ -157,15 +131,12 @@ function LoginForm() {
                       </div>
                     </div>
 
-                    <button className="btn btn-primary w-100 py-2 fw-semibold" disabled={loading}>
+                    <button type="submit" className="btn btn-primary w-100 py-2 fw-semibold" disabled={loading}>
                       {loading ? <><FaSpinner className="fa-spin me-2" /> Signing In...</> : 'Log In'}
                     </button>
-
                   </form>
-
                 </div>
               </div>
-
             </div>
           </div>
         </div>
