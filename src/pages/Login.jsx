@@ -11,7 +11,7 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
-  const navigate = useNavigate(); // ✅ React Router hook
+  const navigate = useNavigate();
 
   const baseURL = 'https://spinners-backend-1.onrender.com/api/auth';
 
@@ -20,9 +20,6 @@ function LoginForm() {
     setLoginData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
   };
-
-  const togglePasswordVisibility = () => setShowPassword(!showPassword);
-  const handleRememberMe = (e) => setRememberMe(e.target.checked);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -39,8 +36,6 @@ function LoginForm() {
         return;
       }
 
-      console.log('Sending login request:', { email: emailTrimmed, password });
-
       const response = await axios.post(`${baseURL}/login`, {
         email: emailTrimmed,
         password
@@ -49,22 +44,28 @@ function LoginForm() {
       if (response.data.success) {
         const user = response.data.user;
 
+        // ✅ Save correct token name
         localStorage.setItem('adminToken', response.data.token);
         localStorage.setItem('adminUser', JSON.stringify(user));
 
-        alert('Login successful! Redirecting to admin dashboard...');
-        navigate('/admin-dashboard'); // ✅ Client-side redirect
-      } else {
-        setError(response.data.message || 'Login failed');
+        // ❌ Remove alert — it blocks navigation on Render
+        // alert('Login successful!');
+
+        // ✅ Redirect to correct route
+        navigate('/admin/dashboard');
+        return;
       }
+
+      setError(response.data.message || 'Login failed');
 
     } catch (err) {
       console.error('Login error:', err);
       setError(
         err.response?.data?.error ||
         err.response?.data?.message ||
-        'Login failed. Please check your credentials and try again.'
+        'Login failed. Please try again.'
       );
+
     } finally {
       setLoading(false);
     }
@@ -73,16 +74,17 @@ function LoginForm() {
   return (
     <div className="d-flex flex-column min-vh-100">
       <div className="flex-grow-1 d-flex align-items-center justify-content-center"
-           style={{ 
-             backgroundImage: 'url(/spinnerlog.png)',
-             backgroundSize: 'cover',
-             backgroundPosition: 'center',
-             backgroundRepeat: 'no-repeat',
-             fontFamily: 'Arial, sans-serif' 
-           }}>
+        style={{
+          backgroundImage: 'url(/spinnerlog.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-md-6 col-lg-4">
+
               <div className="card shadow-lg border-0 rounded-3">
                 <div className="card-header bg-primary text-white text-center py-4 rounded-top-3">
                   <div className="d-flex align-items-center justify-content-center mb-3">
@@ -97,100 +99,73 @@ function LoginForm() {
                 </div>
 
                 <div className="card-body p-4">
+
                   <div className="text-center mb-4">
                     <h4 className="text-dark fw-bold">Welcome Back</h4>
                     <p className="text-muted">Sign in to access the admin dashboard</p>
                   </div>
 
                   {error && (
-                    <div className="alert alert-danger d-flex align-items-center" role="alert">
-                      <div className="flex-grow-1">{error}</div>
-                      <button type="button" className="btn-close" onClick={() => setError('')}></button>
-                    </div>
+                    <div className="alert alert-danger">{error}</div>
                   )}
 
                   <form onSubmit={handleLogin}>
+
                     <div className="mb-3">
-                      <label htmlFor="email" className="form-label fw-semibold text-dark">Email Address</label>
+                      <label className="form-label fw-semibold text-dark">Email</label>
                       <div className="input-group">
-                        <span className="input-group-text bg-light border-end-0">
+                        <span className="input-group-text bg-light">
                           <FaUser className="text-muted" />
                         </span>
                         <input
                           type="email"
-                          className="form-control border-start-0"
-                          id="email"
                           name="email"
                           value={loginData.email}
                           onChange={handleInputChange}
+                          className="form-control"
                           placeholder="Enter your email"
-                          required
                           disabled={loading}
+                          required
                         />
                       </div>
                     </div>
 
                     <div className="mb-4">
-                      <label htmlFor="password" className="form-label fw-semibold text-dark">Password</label>
+                      <label className="form-label fw-semibold text-dark">Password</label>
                       <div className="input-group">
-                        <span className="input-group-text bg-light border-end-0">
+                        <span className="input-group-text bg-light">
                           <FaLock className="text-muted" />
                         </span>
                         <input
                           type={showPassword ? 'text' : 'password'}
-                          className="form-control border-start-0 border-end-0"
-                          id="password"
                           name="password"
                           value={loginData.password}
                           onChange={handleInputChange}
+                          className="form-control border-end-0"
                           placeholder="Enter your password"
-                          required
                           disabled={loading}
+                          required
                         />
-                        <button 
-                          type="button" 
-                          className="input-group-text bg-light border-start-0"
-                          onClick={togglePasswordVisibility} 
+                        <button
+                          type="button"
+                          className="input-group-text bg-light"
+                          onClick={() => setShowPassword(!showPassword)}
                           disabled={loading}
                         >
-                          {showPassword ? <FaEyeSlash className="text-muted" /> : <FaEye className="text-muted" />}
+                          {showPassword ? <FaEyeSlash /> : <FaEye />}
                         </button>
                       </div>
                     </div>
 
-                    <div className="d-flex justify-content-between align-items-center mb-4">
-                      <div className="form-check">
-                        <input 
-                          type="checkbox" 
-                          className="form-check-input" 
-                          id="rememberMe" 
-                          checked={rememberMe}
-                          onChange={handleRememberMe}
-                        />
-                        <label className="form-check-label text-muted" htmlFor="rememberMe">Remember me</label>
-                      </div>
-                      <a href="#forgot-password" className="text-primary text-decoration-none">Forgot Password?</a>
-                    </div>
-
-                    <button type="submit" className="btn btn-primary w-100 py-2 fw-semibold" disabled={loading}>
+                    <button className="btn btn-primary w-100 py-2 fw-semibold" disabled={loading}>
                       {loading ? <><FaSpinner className="fa-spin me-2" /> Signing In...</> : 'Log In'}
                     </button>
+
                   </form>
 
-                  <div className="text-center mt-4 pt-3" style={{ borderTop: '1px solid #dee2e6' }}>
-                    <small className="text-muted">
-                      2025 © Designed by <strong style={{ color: '#007bff' }}>Forge Reactor</strong>
-                    </small>
-                  </div>
                 </div>
               </div>
 
-              <div className="text-center mt-4">
-                <small className="text-white opacity-75">
-                  <i className="fas fa-shield-alt me-1"></i>
-                  Secure admin access only. Unauthorized access prohibited.
-                </small>
-              </div>
             </div>
           </div>
         </div>

@@ -8,7 +8,7 @@ function App() {
 
   // Check token in localStorage on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('adminToken');  // ✅ FIXED
     if (token) {
       setIsLoggedIn(true);
     }
@@ -25,6 +25,7 @@ function App() {
   return (
     <Router>
       <Routes>
+
         {/* Login route */}
         <Route path="/login" element={<Login />} />
 
@@ -38,8 +39,18 @@ function App() {
           }
         />
 
-        {/* Redirect all other routes */}
-        <Route path="*" element={<Navigate to={isLoggedIn ? '/admin/dashboard' : '/login'} replace />} />
+        {/* Optional: alias for backward compatibility */}
+        <Route
+          path="/admin-dashboard"
+          element={<Navigate to="/admin/dashboard" replace />}
+        />
+
+        {/* Redirect all unknown routes */}
+        <Route
+          path="*"
+          element={<Navigate to={isLoggedIn ? '/admin/dashboard' : '/login'} replace />}
+        />
+
       </Routes>
     </Router>
   );
