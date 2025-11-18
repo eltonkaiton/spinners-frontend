@@ -28,7 +28,7 @@ function AdminHome() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [chartsLoading, setChartsLoading] = useState(false);
-  const baseURL = 'https://spinners-backend-1.onrender.com/api';
+  const baseURL = 'http://localhost:3001/api';
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const toggleDropdown = (key) => setDropdownOpen((prev) => (prev === key ? null : key));
