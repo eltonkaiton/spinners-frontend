@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaBars, FaCaretDown, FaEdit, FaTrash, FaSave, FaTimes, FaSignOutAlt, FaSearch, FaUserPlus, FaUserShield, FaHome, FaUsers, FaShoppingCart, FaMoneyBillWave, FaBox, FaChartLine, FaSpinner } from 'react-icons/fa';
+import { FaBars, FaCaretDown, FaEdit, FaTrash, FaSave, FaTimes, FaSignOutAlt, FaSearch, FaUserPlus, FaUserShield, FaHome, FaUsers, FaShoppingCart, FaMoneyBillWave, FaBox, FaChartLine, FaSpinner, FaClipboardList, FaWarehouse, FaUser, FaStore, FaCreditCard, FaReceipt, FaDownload } from 'react-icons/fa';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
@@ -28,7 +28,12 @@ function AdminHome() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [chartsLoading, setChartsLoading] = useState(false);
-  const baseURL = 'http://localhost:3001/api';
+  const [customerOrders, setCustomerOrders] = useState([]);
+  const [inventoryOrders, setInventoryOrders] = useState([]);
+  const [paymentsList, setPaymentsList] = useState([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const baseURL = 'https://spinners-backend-1.onrender.com/api';
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
   const toggleDropdown = (key) => setDropdownOpen((prev) => (prev === key ? null : key));
@@ -155,7 +160,287 @@ function AdminHome() {
     return days;
   };
 
-  useEffect(() => { if (activeSection === 'dashboard') fetchDashboardData(); }, [activeSection]);
+  // === FETCH CUSTOMER ORDERS ===
+  const fetchCustomerOrders = async () => {
+    setOrdersLoading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.get(`${baseURL}/orders`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        // Filter customer orders (orderType === "customer" or undefined for backward compatibility)
+        const customerOrders = response.data.orders.filter(order => 
+          !order.orderType || order.orderType === "customer"
+        );
+        setCustomerOrders(customerOrders);
+        setActiveSection('customer-orders');
+      } else {
+        alert('Failed to fetch customer orders');
+      }
+    } catch (error) {
+      console.error('Error fetching customer orders:', error);
+      alert('Failed to load customer orders');
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  // === FETCH INVENTORY ORDERS ===
+  const fetchInventoryOrders = async () => {
+    setOrdersLoading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.get(`${baseURL}/orders`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        // Filter inventory orders (orderType === "inventory")
+        const inventoryOrders = response.data.orders.filter(order => 
+          order.orderType === "inventory"
+        );
+        setInventoryOrders(inventoryOrders);
+        setActiveSection('inventory-orders');
+      } else {
+        alert('Failed to fetch inventory orders');
+      }
+    } catch (error) {
+      console.error('Error fetching inventory orders:', error);
+      alert('Failed to load inventory orders');
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  // === FETCH PAYMENTS FROM ORDERS ===
+  const fetchPayments = async () => {
+    setPaymentsLoading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.get(`${baseURL}/orders`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        const allOrders = response.data.orders;
+        
+        // Transform orders into payment records
+        const payments = allOrders.map(order => ({
+          _id: order._id,
+          orderId: { _id: order._id, orderType: order.orderType || 'customer' },
+          userId: order.userId,
+          artisanId: order.artisanId,
+          supplierId: order.supplierId,
+          amount: order.totalPrice || order.totalAmount || 0,
+          paymentMethod: order.paymentMethod || 'unknown',
+          paymentStatus: order.paymentStatus || 'pending',
+          transactionId: order.transactionId || `ORD-${order._id?.substring(0, 8)}`,
+          createdAt: order.createdAt || new Date(),
+          productId: order.productId,
+          quantity: order.quantity,
+          orderStatus: order.orderStatus
+        }));
+        
+        setPaymentsList(payments);
+        setActiveSection('payments');
+      } else {
+        alert('Failed to fetch orders for payments');
+      }
+    } catch (error) {
+      console.error('Error fetching payments from orders:', error);
+      alert('Failed to load payment records from orders');
+    } finally {
+      setPaymentsLoading(false);
+    }
+  };
+
+  // === GENERATE RECEIPT ===
+  const generateReceipt = (payment) => {
+    const receiptWindow = window.open('', '_blank');
+    const receiptContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Payment Receipt - ${payment.transactionId}</title>
+          <style>
+              body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+              .receipt-container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+              .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+              .company-name { font-size: 28px; font-weight: bold; color: #333; margin: 0; }
+              .tagline { color: #666; font-size: 14px; margin: 5px 0 0 0; }
+              .receipt-title { text-align: center; font-size: 24px; margin: 20px 0; color: #333; }
+              .receipt-details { margin: 30px 0; }
+              .detail-row { display: flex; justify-content: space-between; margin: 10px 0; padding: 8px 0; border-bottom: 1px solid #eee; }
+              .detail-label { font-weight: bold; color: #555; }
+              .detail-value { color: #333; }
+              .amount { font-size: 24px; font-weight: bold; color: #28a745; text-align: center; margin: 30px 0; }
+              .status-badge { 
+                  display: inline-block; 
+                  padding: 5px 15px; 
+                  border-radius: 20px; 
+                  font-weight: bold; 
+                  text-transform: uppercase;
+                  font-size: 12px;
+              }
+              .status-completed { background: #d4edda; color: #155724; }
+              .status-pending { background: #fff3cd; color: #856404; }
+              .status-paid { background: #d4edda; color: #155724; }
+              .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
+              .print-btn { 
+                  background: #007bff; 
+                  color: white; 
+                  border: none; 
+                  padding: 10px 20px; 
+                  border-radius: 5px; 
+                  cursor: pointer; 
+                  margin: 20px auto; 
+                  display: block; 
+                  font-size: 16px;
+              }
+              @media print {
+                  body { background: white; }
+                  .print-btn { display: none; }
+                  .receipt-container { box-shadow: none; }
+              }
+          </style>
+      </head>
+      <body>
+          <div class="receipt-container">
+              <div class="header">
+                  <h1 class="company-name">FORGE REACTOR</h1>
+                  <p class="tagline">Forging Digital Innovation</p>
+              </div>
+              
+              <h2 class="receipt-title">PAYMENT RECEIPT</h2>
+              
+              <div class="receipt-details">
+                  <div class="detail-row">
+                      <span class="detail-label">Receipt Number:</span>
+                      <span class="detail-value">${payment.transactionId}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Date:</span>
+                      <span class="detail-value">${new Date(payment.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Time:</span>
+                      <span class="detail-value">${new Date(payment.createdAt).toLocaleTimeString()}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Order ID:</span>
+                      <span class="detail-value">${payment.orderId?._id || 'N/A'}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Order Type:</span>
+                      <span class="detail-value">${payment.orderId?.orderType || 'customer'}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Customer/Artisan:</span>
+                      <span class="detail-value">${payment.userId?.fullName || payment.artisanId?.fullName || payment.supplierId?.fullName || 'N/A'}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Email:</span>
+                      <span class="detail-value">${payment.userId?.email || payment.artisanId?.email || payment.supplierId?.email || 'N/A'}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Product:</span>
+                      <span class="detail-value">${payment.productId?.name || 'N/A'}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Quantity:</span>
+                      <span class="detail-value">${payment.quantity || 1}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Payment Method:</span>
+                      <span class="detail-value" style="text-transform: uppercase;">${payment.paymentMethod}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Order Status:</span>
+                      <span class="detail-value">${payment.orderStatus || 'N/A'}</span>
+                  </div>
+                  <div class="detail-row">
+                      <span class="detail-label">Payment Status:</span>
+                      <span class="detail-value">
+                          <span class="status-badge ${payment.paymentStatus === 'completed' || payment.paymentStatus === 'paid' ? 'status-completed' : 'status-pending'}">
+                              ${payment.paymentStatus}
+                          </span>
+                      </span>
+                  </div>
+              </div>
+              
+              <div class="amount">
+                  ${formatCurrency(payment.amount)}
+              </div>
+              
+              <div class="footer">
+                  <p>Thank you for your business!</p>
+                  <p>For any inquiries, contact: support@forgereactor.com</p>
+                  <p>This is an computer-generated receipt. No signature required.</p>
+              </div>
+              
+              <button class="print-btn" onclick="window.print()">Print Receipt</button>
+          </div>
+      </body>
+      </html>
+    `;
+    
+    receiptWindow.document.write(receiptContent);
+    receiptWindow.document.close();
+  };
+
+  // === DOWNLOAD RECEIPT ===
+  const downloadReceipt = (payment) => {
+    const receiptContent = `
+      Payment Receipt - ${payment.transactionId}
+      
+      FORGE REACTOR
+      Forging Digital Innovation
+      
+      ===============================
+              PAYMENT RECEIPT
+      ===============================
+      
+      Receipt Number: ${payment.transactionId}
+      Date: ${new Date(payment.createdAt).toLocaleDateString()}
+      Time: ${new Date(payment.createdAt).toLocaleTimeString()}
+      Order ID: ${payment.orderId?._id || 'N/A'}
+      Order Type: ${payment.orderId?.orderType || 'customer'}
+      Customer/Artisan: ${payment.userId?.fullName || payment.artisanId?.fullName || payment.supplierId?.fullName || 'N/A'}
+      Email: ${payment.userId?.email || payment.artisanId?.email || payment.supplierId?.email || 'N/A'}
+      Product: ${payment.productId?.name || 'N/A'}
+      Quantity: ${payment.quantity || 1}
+      Payment Method: ${payment.paymentMethod?.toUpperCase()}
+      Order Status: ${payment.orderStatus || 'N/A'}
+      Payment Status: ${payment.paymentStatus?.toUpperCase()}
+      
+      ===============================
+      AMOUNT: ${formatCurrency(payment.amount)}
+      ===============================
+      
+      Thank you for your business!
+      For any inquiries, contact: support@forgereactor.com
+      
+      This is an computer-generated receipt. No signature required.
+    `;
+    
+    const blob = new Blob([receiptContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `receipt-${payment.transactionId}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  useEffect(() => { 
+    if (activeSection === 'dashboard') fetchDashboardData(); 
+  }, [activeSection]);
 
   const handleUserFormChange = (e) => setUserForm({ ...userForm, [e.target.name]: e.target.value });
   const handleUserFormSubmit = async (e) => {
@@ -177,15 +462,6 @@ function AdminHome() {
       setCurrentStatus(status);
       setActiveSection('user-list');
     } catch (err) { console.error(err); alert('Failed to load users'); }
-  };
-
-  const updateUserStatus = async (user_id, newStatus) => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      await axios.patch(`${baseURL}/users/update-status/${user_id}`, { status: newStatus }, { headers: { Authorization: `Bearer ${token}` } });
-      alert(`Status updated to ${newStatus}`);
-      fetchUsersByStatus(currentStatus);
-    } catch (err) { console.error(err); alert('Failed to update user status'); }
   };
 
   const fetchEmployees = async () => {
@@ -241,6 +517,26 @@ function AdminHome() {
 
   const filteredUsers = usersList.filter(user => user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || user.email?.toLowerCase().includes(searchTerm.toLowerCase()) || user.role?.toLowerCase().includes(searchTerm.toLowerCase()));
   const filteredEmployees = employeesList.filter(emp => emp.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) || emp.email?.toLowerCase().includes(searchTerm.toLowerCase()) || emp.role?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredCustomerOrders = customerOrders.filter(order => 
+    order.productId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.userId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.orderStatus?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const filteredInventoryOrders = inventoryOrders.filter(order => 
+    order.productId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.supplierId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.artisanId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.orderStatus?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const filteredPayments = paymentsList.filter(payment => 
+    payment.transactionId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    payment.userId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    payment.artisanId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    payment.supplierId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    payment.paymentMethod?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    payment.paymentStatus?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    payment.productId?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const getStatusBadge = (status) => {
     const statusConfig = { active: 'success', pending: 'warning', suspended: 'danger', rejected: 'secondary' };
@@ -250,6 +546,31 @@ function AdminHome() {
   const getRoleBadge = (role) => {
     const roleConfig = { admin: 'danger', supervisor: 'info', employee: 'primary', finance: 'success', driver: 'warning', customer: 'secondary', artisan: 'dark', supplier: 'light text-dark' };
     return <span className={`badge bg-${roleConfig[role] || 'secondary'}`}>{role}</span>;
+  };
+
+  const getOrderStatusBadge = (status) => {
+    const statusConfig = { 
+      pending: 'warning', processing: 'info', shipped: 'primary', delivered: 'success', 
+      completed: 'success', received: 'info', approved: 'success', rejected: 'danger',
+      cancelled: 'secondary'
+    };
+    return <span className={`badge bg-${statusConfig[status?.toLowerCase()] || 'secondary'}`}>{status}</span>;
+  };
+
+  const getPaymentStatusBadge = (status) => {
+    const statusConfig = { 
+      pending: 'warning', paid: 'success', completed: 'success', approved: 'success', 
+      failed: 'danger', cancelled: 'secondary'
+    };
+    return <span className={`badge bg-${statusConfig[status?.toLowerCase()] || 'secondary'}`}>{status}</span>;
+  };
+
+  const getPaymentMethodBadge = (method) => {
+    const methodConfig = { 
+      mpesa: 'success', card: 'primary', bank_transfer: 'info', cash: 'secondary', 
+      paypal: 'primary', stripe: 'info', unknown: 'secondary'
+    };
+    return <span className={`badge bg-${methodConfig[method] || 'secondary'}`}>{method}</span>;
   };
 
   const formatCurrency = (amount) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount);
@@ -309,6 +630,205 @@ function AdminHome() {
           <ResponsiveContainer width="100%" height={300}><BarChart data={chartData.orderStatus} layout="vertical"><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" /><YAxis dataKey="status" type="category" /><Tooltip />
             <Bar dataKey="count" name="Orders">{chartData.orderStatus.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}</Bar></BarChart></ResponsiveContainer>
         ) : (<div className="d-flex justify-content-center align-items-center" style={{ height: '300px' }}><p className="text-muted">No order data available</p></div>)}
+      </div>
+    </div>
+  );
+
+  // === RENDER CUSTOMER ORDERS ===
+  const renderCustomerOrders = () => (
+    <div className="card shadow-sm">
+      <div className="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <h4 className="mb-0"><FaUser className="me-2" />Customer Orders<span className="badge bg-light text-dark ms-2">{filteredCustomerOrders.length}</span></h4>
+        <div className="d-flex align-items-center">
+          <div className="input-group input-group-sm" style={{ width: '300px' }}>
+            <span className="input-group-text"><FaSearch /></span>
+            <input type="text" className="form-control" placeholder="Search customer orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          </div>
+        </div>
+      </div>
+      <div className="card-body">
+        {ordersLoading ? (
+          <div className="text-center py-5"><FaSpinner className="fa-spin me-2" />Loading customer orders...</div>
+        ) : filteredCustomerOrders.length > 0 ? (
+          <div className="table-responsive">
+            <table className="table table-hover table-striped">
+              <thead className="table-dark">
+                <tr>
+                  <th>Order ID</th>
+                  <th>Product</th>
+                  <th>Customer</th>
+                  <th>Quantity</th>
+                  <th>Total Price</th>
+                  <th>Order Status</th>
+                  <th>Payment Status</th>
+                  <th>Created Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCustomerOrders.map((order) => (
+                  <tr key={order._id}>
+                    <td><small className="text-muted">{order._id?.substring(0, 8)}...</small></td>
+                    <td className="fw-bold">{order.productId?.name || 'N/A'}</td>
+                    <td>{order.userId?.fullName || 'N/A'}</td>
+                    <td>{order.quantity}</td>
+                    <td>{formatCurrency(order.totalPrice || 0)}</td>
+                    <td>{getOrderStatusBadge(order.orderStatus)}</td>
+                    <td>{getPaymentStatusBadge(order.paymentStatus)}</td>
+                    <td>{new Date(order.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-5">
+            <FaShoppingCart size={48} className="text-muted mb-3" />
+            <h5 className="text-muted">No Customer Orders Found</h5>
+            <p className="text-muted">No customer orders match your current filters</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // === RENDER INVENTORY ORDERS ===
+  const renderInventoryOrders = () => (
+    <div className="card shadow-sm">
+      <div className="card-header bg-warning text-white d-flex justify-content-between align-items-center">
+        <h4 className="mb-0"><FaStore className="me-2" />Inventory Orders<span className="badge bg-light text-dark ms-2">{filteredInventoryOrders.length}</span></h4>
+        <div className="d-flex align-items-center">
+          <div className="input-group input-group-sm" style={{ width: '300px' }}>
+            <span className="input-group-text"><FaSearch /></span>
+            <input type="text" className="form-control" placeholder="Search inventory orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          </div>
+        </div>
+      </div>
+      <div className="card-body">
+        {ordersLoading ? (
+          <div className="text-center py-5"><FaSpinner className="fa-spin me-2" />Loading inventory orders...</div>
+        ) : filteredInventoryOrders.length > 0 ? (
+          <div className="table-responsive">
+            <table className="table table-hover table-striped">
+              <thead className="table-dark">
+                <tr>
+                  <th>Order ID</th>
+                  <th>Product</th>
+                  <th>Artisan</th>
+                  <th>Supplier</th>
+                  <th>Quantity</th>
+                  <th>Total Price</th>
+                  <th>Order Status</th>
+                  <th>Payment Status</th>
+                  <th>Created Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredInventoryOrders.map((order) => (
+                  <tr key={order._id}>
+                    <td><small className="text-muted">{order._id?.substring(0, 8)}...</small></td>
+                    <td className="fw-bold">{order.productId?.name || 'N/A'}</td>
+                    <td>{order.artisanId?.fullName || 'N/A'}</td>
+                    <td>{order.supplierId?.fullName || 'N/A'}</td>
+                    <td>{order.quantity}</td>
+                    <td>{formatCurrency(order.totalPrice || 0)}</td>
+                    <td>{getOrderStatusBadge(order.orderStatus)}</td>
+                    <td>{getPaymentStatusBadge(order.paymentStatus)}</td>
+                    <td>{new Date(order.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-5">
+            <FaStore size={48} className="text-muted mb-3" />
+            <h5 className="text-muted">No Inventory Orders Found</h5>
+            <p className="text-muted">No inventory orders match your current filters</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // === RENDER PAYMENTS ===
+  const renderPayments = () => (
+    <div className="card shadow-sm">
+      <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <h4 className="mb-0"><FaCreditCard className="me-2" />Payment Records<span className="badge bg-light text-dark ms-2">{filteredPayments.length}</span></h4>
+        <div className="d-flex align-items-center">
+          <div className="input-group input-group-sm" style={{ width: '300px' }}>
+            <span className="input-group-text"><FaSearch /></span>
+            <input type="text" className="form-control" placeholder="Search payments..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          </div>
+        </div>
+      </div>
+      <div className="card-body">
+        {paymentsLoading ? (
+          <div className="text-center py-5"><FaSpinner className="fa-spin me-2" />Loading payment records...</div>
+        ) : filteredPayments.length > 0 ? (
+          <div className="table-responsive">
+            <table className="table table-hover table-striped">
+              <thead className="table-dark">
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>Order ID</th>
+                  <th>Product</th>
+                  <th>Customer/Artisan/Supplier</th>
+                  <th>Amount</th>
+                  <th>Payment Method</th>
+                  <th>Order Status</th>
+                  <th>Payment Status</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPayments.map((payment) => (
+                  <tr key={payment._id}>
+                    <td className="fw-bold">{payment.transactionId}</td>
+                    <td><small className="text-muted">{payment.orderId?._id?.substring(0, 8) || 'N/A'}...</small></td>
+                    <td>{payment.productId?.name || 'N/A'}</td>
+                    <td>
+                      {payment.userId?.fullName || 
+                       payment.artisanId?.fullName || 
+                       payment.supplierId?.fullName || 
+                       'N/A'}
+                    </td>
+                    <td className="fw-bold">{formatCurrency(payment.amount)}</td>
+                    <td>{getPaymentMethodBadge(payment.paymentMethod)}</td>
+                    <td>{getOrderStatusBadge(payment.orderStatus)}</td>
+                    <td>{getPaymentStatusBadge(payment.paymentStatus)}</td>
+                    <td>{new Date(payment.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <div className="btn-group btn-group-sm">
+                        <button 
+                          className="btn btn-outline-primary" 
+                          onClick={() => generateReceipt(payment)}
+                          title="View Receipt"
+                        >
+                          <FaReceipt />
+                        </button>
+                        <button 
+                          className="btn btn-outline-success" 
+                          onClick={() => downloadReceipt(payment)}
+                          title="Download Receipt"
+                        >
+                          <FaDownload />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-5">
+            <FaCreditCard size={48} className="text-muted mb-3" />
+            <h5 className="text-muted">No Payment Records Found</h5>
+            <p className="text-muted">No payments match your current filters</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -449,6 +969,9 @@ function AdminHome() {
               <button className="btn btn-outline-warning" onClick={() => fetchUsersByStatus('pending')}><FaUsers className="me-2" />View Pending Users</button>
               <button className="btn btn-outline-info" onClick={fetchEmployees}><FaUserShield className="me-2" />Manage Employees</button>
               <button className="btn btn-outline-secondary" onClick={fetchDashboardData}><FaChartLine className="me-2" />Refresh Data</button>
+              <button className="btn btn-outline-info" onClick={fetchCustomerOrders}><FaUser className="me-2" />Customer Orders</button>
+              <button className="btn btn-outline-warning" onClick={fetchInventoryOrders}><FaStore className="me-2" />Inventory Orders</button>
+              <button className="btn btn-outline-success" onClick={fetchPayments}><FaCreditCard className="me-2" />View Payments</button>
             </div></div></div></div></div>
           <div className="row"><div className="col-lg-6 mb-4"><RevenueChart /></div><div className="col-lg-6 mb-4"><ProductCategoryChart /></div>
             <div className="col-lg-6 mb-4"><UserRegistrationChart /></div><div className="col-lg-6 mb-4"><OrderStatusChart /></div></div>
@@ -474,6 +997,9 @@ function AdminHome() {
       );
       case 'user-list': return renderUsersContent();
       case 'employee-list': case 'add-employee': return renderEmployeeContent();
+      case 'customer-orders': return renderCustomerOrders();
+      case 'inventory-orders': return renderInventoryOrders();
+      case 'payments': return renderPayments();
       default: return (<div className="card shadow-sm"><div className="card-body text-center py-5"><h3 className="text-muted">Coming Soon</h3><p className="text-muted">This section is under development</p></div></div>);
     }
   };
@@ -484,6 +1010,7 @@ function AdminHome() {
         <div className="text-center mb-4 border-bottom pb-3"><h4 className="mb-1 fw-bold">Admin Panel</h4><small className="text-muted">Spinners Web Kenya</small></div>
         <ul className="nav flex-column flex-grow-1">
           <li className="nav-item mb-2"><button className={`btn w-100 text-start text-white d-flex align-items-center ${activeSection === 'dashboard' ? 'bg-primary' : 'bg-dark'}`} onClick={() => setActiveSection('dashboard')}><FaHome className="me-2" />Dashboard</button></li>
+          
           <li className="nav-item mb-2"><button className="btn w-100 text-start text-white d-flex align-items-center justify-content-between bg-dark" onClick={() => toggleDropdown('users')}><span><FaUsers className="me-2" />User Management</span><FaCaretDown /></button>
             {dropdownOpen === 'users' && (<ul className="nav flex-column ms-3 mt-2">
               <li className="nav-item mb-1"><button className="btn btn-sm w-100 text-start text-white bg-dark" onClick={() => fetchUsersByStatus('active')}>✅ Active Users</button></li>
@@ -493,7 +1020,15 @@ function AdminHome() {
               <li className="nav-item mb-1"><button className="btn btn-sm w-100 text-start text-white bg-success" onClick={() => setActiveSection('add-user')}><FaUserPlus className="me-1" />Add New User</button></li>
             </ul>)}
           </li>
+
           <li className="nav-item mb-2"><button className={`btn w-100 text-start text-white d-flex align-items-center ${activeSection === 'employee-list' ? 'bg-success' : 'bg-dark'}`} onClick={fetchEmployees}><FaUserShield className="me-2" />Employees</button></li>
+          
+          <li className="nav-item mb-2"><button className={`btn w-100 text-start text-white d-flex align-items-center ${activeSection === 'customer-orders' ? 'bg-info' : 'bg-dark'}`} onClick={fetchCustomerOrders}><FaUser className="me-2" />Customer Orders</button></li>
+          
+          <li className="nav-item mb-2"><button className={`btn w-100 text-start text-white d-flex align-items-center ${activeSection === 'inventory-orders' ? 'bg-warning' : 'bg-dark'}`} onClick={fetchInventoryOrders}><FaStore className="me-2" />Inventory Orders</button></li>
+          
+          <li className="nav-item mb-2"><button className={`btn w-100 text-start text-white d-flex align-items-center ${activeSection === 'payments' ? 'bg-success' : 'bg-dark'}`} onClick={fetchPayments}><FaCreditCard className="me-2" />Payments</button></li>
+          
           <li className="nav-item mb-2"><button className={`btn w-100 text-start text-white d-flex align-items-center ${activeSection === 'add-employee' ? 'bg-info' : 'bg-dark'}`} onClick={() => setActiveSection('add-employee')}><FaUserPlus className="me-2" />Add Employee</button></li>
         </ul>
         <div className="border-top pt-3 mt-auto">

@@ -14,7 +14,7 @@ function LoginForm() {
 
   const navigate = useNavigate();
   const { login } = useContext(AuthContext); // ✅ Use AuthContext
-  const baseURL = 'http://localhost:3001/api/auth';
+  const baseURL = 'https://spinners-backend-1.onrender.com/api/auth';
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
