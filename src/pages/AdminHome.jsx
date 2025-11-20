@@ -48,6 +48,55 @@ function AdminHome() {
     }
   };
 
+  // === FIXED: UPDATE USER STATUS FUNCTION ===
+  const updateUserStatus = async (userId, newStatus) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      
+      // Use the correct PATCH endpoint from your backend
+      const response = await axios.patch(
+        `${baseURL}/users/update-status/${userId}`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        alert(`User status updated to ${newStatus} successfully`);
+        
+        // Update the local state to reflect the change
+        setUsersList(prevUsers => 
+          prevUsers.map(user => 
+            user._id === userId ? { ...user, status: newStatus } : user
+          )
+        );
+        
+        // Refresh the current status list
+        if (currentStatus) {
+          fetchUsersByStatus(currentStatus);
+        }
+      } else {
+        alert('Failed to update user status');
+      }
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      
+      if (error.response?.status === 401) {
+        alert('Session expired. Please login again.');
+        localStorage.removeItem('adminToken');
+        window.location.href = '/login';
+        return;
+      }
+      
+      if (error.response?.status === 404) {
+        alert('User not found or endpoint unavailable');
+      } else if (error.response?.status === 403) {
+        alert('Access denied. You do not have permission to update user status.');
+      } else {
+        alert('Failed to update user status. Please try again.');
+      }
+    }
+  };
+
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
